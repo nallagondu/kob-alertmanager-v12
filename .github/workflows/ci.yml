@@ -8,7 +8,7 @@ jobs:
     name: Test alertmanager frontend
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version-file: './.nvmrc'
@@ -30,7 +30,7 @@ jobs:
       matrix:
         thread: [0, 1, 2]
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4.0.0
       - uses: prometheus/promci/build@42c3c84c865e5c1ab78543b929f7341eb2ef6123 # v0.6.1
         with:
           promu_opts: "-p linux/amd64 -p windows/amd64 -p linux/arm64 -p darwin/amd64 -p darwin/arm64 -p linux/386"
@@ -57,7 +57,7 @@ jobs:
       EMAIL_NO_AUTH_CONFIG: testdata/noauth.yml
       EMAIL_AUTH_CONFIG: testdata/auth.yml
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: cache-paths
         run: echo "npm-cache=$(npm config get cache)" >> $GITHUB_OUTPUT
       - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4

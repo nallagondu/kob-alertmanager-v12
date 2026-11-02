@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 75
     steps:
       - name: Checkout V12 source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Node.js for Vite 8
         uses: actions/setup-node@v4
