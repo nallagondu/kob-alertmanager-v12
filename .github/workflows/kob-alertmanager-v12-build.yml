@@ -1,0 +1,115 @@
+name: KOB Alertmanager V12 - Build and Security Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/kob-alertmanager-v12-security
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout V12 source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js for Vite 8
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/app/package-lock.json
+
+      - name: Compile Elm frontend
+        working-directory: ui/app
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          test -d dist
+          test -n "$(find dist -type f -print -quit)"
+          find dist -type f | head -30
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.3'
+          cache: true
+
+      - name: Verify Go dependencies
+        run: |
+          go mod verify
+          git diff --check
+
+      - name: Compile Linux AMD64 binaries
+        env:
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          set -euo pipefail
+          mkdir -p .build/linux-amd64
+          go build -trimpath -tags netgo -o alertmanager ./cmd/alertmanager
+          go build -trimpath -tags netgo -o amtool ./cmd/amtool
+          cp alertmanager amtool .build/linux-amd64/
+          ./alertmanager --version
+          ./amtool --version
+
+      - name: Go vet
+        run: go vet ./...
+
+      - name: Full Go test suite
+        run: go test ./... -count=1 -timeout=15m
+
+      - name: Race regression tests
+        run: go test -race ./provider/mem ./notify/email ./tracing -count=1 -timeout=15m
+
+      - name: Generate hardened image Dockerfile
+        run: |
+          cat > Dockerfile.kob-v12 <<'DOCKERFILE'
+          FROM gcr.io/distroless/static-debian13:nonroot
+          COPY --chmod=0555 .build/linux-amd64/alertmanager /bin/alertmanager
+          COPY --chmod=0555 .build/linux-amd64/amtool /bin/amtool
+          COPY --chmod=0444 examples/ha/alertmanager.yml /etc/alertmanager/alertmanager.yml
+          USER 65532:65532
+          EXPOSE 9093
+          ENTRYPOINT ["/bin/alertmanager"]
+          CMD ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/tmp/alertmanager"]
+          DOCKERFILE
+
+      - name: Build V12 image
+        run: |
+          docker build --platform linux/amd64 -f Dockerfile.kob-v12 \
+            -t kob-alertmanager:secure-v12-go1.27.3 .
+          docker image inspect kob-alertmanager:secure-v12-go1.27.3 \
+            --format 'Image={{.Id}} User={{.Config.User}}'
+
+      - name: Scan HIGH and CRITICAL vulnerabilities (release gate)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          image-ref: kob-alertmanager:secure-v12-go1.27.3
+          format: table
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          exit-code: '1'
+          ignore-unfixed: false
+
+      - name: Export validated image and checksums
+        run: |
+          mkdir -p release
+          docker save kob-alertmanager:secure-v12-go1.27.3 \
+            | gzip -1 > release/kob-alertmanager-secure-v12-go1.27.3-linux-amd64.tar.gz
+          (cd release && sha256sum *.tar.gz > SHA256SUMS)
+          cp .build/linux-amd64/alertmanager .build/linux-amd64/amtool release/
+
+      - name: Upload validated build
+        uses: actions/upload-artifact@v4
+        with:
+          name: kob-alertmanager-v12-validated-${{ github.run_number }}
+          path: release/
+          retention-days: 14
+          if-no-files-found: error
