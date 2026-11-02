@@ -89,7 +89,7 @@ jobs:
             --format 'Image={{.Id}} User={{.Config.User}}'
 
       - name: Scan HIGH and CRITICAL vulnerabilities (release gate)
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.33.0
         with:
           image-ref: kob-alertmanager:secure-v12-go1.27.3
           format: table
