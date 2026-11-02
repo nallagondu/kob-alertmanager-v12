@@ -28,7 +28,7 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: prometheus/promci/publish_release@42c3c84c865e5c1ab78543b929f7341eb2ef6123 # v0.6.1
+      - uses: prometheus/promci/publish_release@872d318d090d73df349cb6ed90aadd072ca478f7 # v0.10.0
         with:
           docker_hub_login: ${{ secrets.docker_hub_login }}
           docker_hub_password: ${{ secrets.docker_hub_password }}
