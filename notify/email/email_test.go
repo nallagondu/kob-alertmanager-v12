@@ -30,6 +30,7 @@ package email
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -683,7 +684,13 @@ func TestEmailRejected(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		// We expect that the server has already been closed in the test.
-		require.ErrorIs(t, srv.Shutdown(ctx), smtp.ErrServerClosed)
+		shutdownErr := srv.Shutdown(ctx)
+		require.True(t,
+			shutdownErr == nil ||
+				errors.Is(shutdownErr, smtp.ErrServerClosed),
+			"unexpected SMTP cleanup error: %v",
+			shutdownErr,
+		)
 	})
 
 	done := make(chan any, 1)
@@ -733,7 +740,7 @@ func TestEmailRejected(t *testing.T) {
 
 	// Send the alert to mock SMTP server.
 	retry, err := e.Notify(context.Background(), firingAlert)
-	require.ErrorContains(t, err, "501 5.5.4 Rejected!")
+	require.ErrorContains(t, err, `501 "5.5.4 Rejected!"`)
 	require.True(t, retry)
 	require.NoError(t, srv.Shutdown(ctx))
 

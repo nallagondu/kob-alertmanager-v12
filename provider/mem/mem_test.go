@@ -600,10 +600,12 @@ func TestAlertsConcurrently(t *testing.T) {
 
 	time.Sleep(expire)
 	require.Eventually(t, func() bool {
-		// When the alert will eventually expire and is considered resolved - it won't count.
+		// Wait until expired alerts have been garbage-collected.
 		active, _, _ := a.countByState()
-		return active == 0
-	}, 2*expire, expire)
+		return active == 0 &&
+			callback.alerts.Load() == 0 &&
+			callback.gcCount.Load() == 0
+	}, time.Second, expire)
 	require.Equal(t, int32(0), callback.alerts.Load())
 	require.Equal(t, int32(0), callback.gcCount.Load())
 }
